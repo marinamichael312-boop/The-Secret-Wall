@@ -72,6 +72,10 @@ button.gold{background:linear-gradient(135deg,#f3c978,#b98535)}
 @keyframes brickLand{0%{opacity:0;transform:translateY(-95px) rotate(-8deg) scale(.92)}65%{opacity:1;transform:translateY(7px) rotate(2deg) scale(1.02)}100%{opacity:1;transform:translateY(0) rotate(0) scale(1)}}
 @media(max-width:700px){.cinema-stage{height:clamp(240px,50vw,390px);border-width:5px}.projector .reveal-grid{gap:10px}.projector .reveal-name{font-size:clamp(17px,4vw,24px)}}
 @media(prefers-reduced-motion:reduce){.cinema-stage *{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+.reveal-team-header{display:flex;align-items:center;justify-content:center;gap:16px;direction:rtl}
+.reveal-team-header .reveal-name{margin:0}
+.reveal-count{display:inline-flex;align-items:center;justify-content:center;min-width:70px;padding:6px 15px;border:1px solid #a88954;border-radius:14px;background:linear-gradient(145deg,#292d32,#14191e);color:#f3dca8;font-size:clamp(28px,3.5vw,48px);font-weight:900;font-variant-numeric:tabular-nums;box-shadow:0 0 24px #d8a95a22}
 </style></head><body><main id="root"></main><script type="module">
 const API='https://secret-wall-api.marinamichael312.workers.dev';
 const root=document.querySelector('#root'),params=new URLSearchParams(location.search),role=params.get('role')||'home',team=params.get('team')==='B'?'B':'A',room=params.get('room')||'demo';
@@ -109,8 +113,13 @@ function wallCard(t,n,finished){
  stones+=`<div class="stone ${exposed.has(i)?'removed':''}"></div>`;
  if(i>=48-built)bricks+=`<div class="redbrick" style="grid-column:${i%8+1};grid-row:${Math.floor(i/8)+1}"></div>`;
  }
- const unlocked=finished&&score(t).minus>score(t).plus;
- return `<div class="reveal-team"><h2 class="reveal-name">${label(t)}</h2><div class="cinema-stage"><div class="ambient"></div><div class="arch ${unlocked?'unlocked':''}"><div class="light"></div><div class="wood"></div></div><div class="facade">${stones}</div><div class="masonry">${bricks}</div><div class="floor"></div><div class="rubble"></div><div class="edge"></div></div></div>`
+ const totals=score(t),net=totals.plus-totals.minus;
+ const teamTotal=totals.plus+totals.minus;
+ // A neutral countdown: never expose whether the net result is positive or negative.
+ // Each team's countdown follows that team's own recorded animation progress.
+ const remaining=teamTotal?Math.max(0,Math.ceil(Math.abs(net)*(teamTotal-seen.length)/teamTotal)):0;
+ const unlocked=finished&&net<0;
+ return `<div class="reveal-team"><div class="reveal-team-header"><h2 class="reveal-name">${label(t)}</h2><span class="reveal-count" aria-label="العدد المتبقي">${remaining}</span></div><div class="cinema-stage"><div class="ambient"></div><div class="arch ${unlocked?'unlocked':''}"><div class="light"></div><div class="wood"></div></div><div class="facade">${stones}</div><div class="masonry">${bricks}</div><div class="floor"></div><div class="rubble"></div><div class="edge"></div></div></div>`
 }
 function projector(){let phase=state.phase||'play',n=Math.min(state.revealStep||0,events().length),finished=phase==='reveal'&&n===events().length;root.className='projector';if(phase==='reveal'){shell(`<div class="center"><h2 class="reveal-heading">اكتشفوا تأثير اختياراتكم</h2></div><div class="reveal-grid">${wallCard('A',n,finished)}${wallCard('B',n,finished)}</div>`)}else{shell(`<div class="center"><h2>${phase==='results'?'استعدوا للمفاجأة':'لوحة الفرق'}</h2><p class="muted">${phase==='results'?'انتهت التحديات':'التحدي رقم '+(state.round||1)}</p></div><div class="grid">${scoreCard('A')}${scoreCard('B')}</div>`)}}
 function admin(){const phase=state.phase||'play';shell(`<div class="panel"><h2>⚙️ لوحة المدير</h2><p>التحكم في العرض على البروجيكتور</p><div class="flex"><button id="play">لوحة النتائج المباشرة</button><button class="secondary" id="results">تثبيت النتائج النهائية</button><button class="gold" id="reveal">🎬 بدء كشف الحيطة</button></div><p>المرحلة الحالية: ${phase} | حدث: ${state.revealStep||0} / ${events().length}</p><div class="flex"><button id="next" class="secondary">الحدث التالي</button><button id="back" class="secondary">الحدث السابق</button><button id="auto" class="green">▶ تشغيل الأنيميشن تلقائيًا</button><button id="stop" class="red">■ إيقاف</button></div><label>رقم التحدي</label><div class="flex"><button class="secondary" id="prevround">−</button><strong>${state.round||1}</strong><button class="secondary" id="nextround">+</button></div><hr style="border-color:#34465b;margin:24px 0"><button class="red" id="reset">🎮 لعبة جديدة (مسح الأسماء والنقط)</button></div><div class="panel"><h2>روابط الأجهزة</h2><label>موبايل فريق A</label><input readonly value="${url('control','A')}"><label>موبايل فريق B</label><input readonly value="${url('control','B')}"><label>اللابتوب</label><input readonly value="${url('projector')}"></div>`);

@@ -1,9 +1,9 @@
-name = "secret-wall-sync"
+name = "secret-wall-api"
 main = "worker.js"
 compatibility_date = "2026-10-01"
 
 [[durable_objects.bindings]]
-name = "GAMES"
+name = "GAME_ROOM"
 class_name = "GameRoom"
 
 [[migrations]]

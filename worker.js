@@ -23,7 +23,7 @@ export class GameRoom {
     }
     else if (action==='reset') data={events:[],phase:'play',revealStep:0,round:1,names:{A:'',B:''},revision:data.revision};
     else if (action==='phase' && ['play','results','reveal'].includes(body.value)){data.phase=body.value;if(body.value==='reveal')data.revealStep=0;}
-    else if (action==='step'){data.phase='reveal';data.revealStep=Math.max(0,Math.min(data.events.length,data.revealStep+Math.sign(Number(body.delta)||0)));}
+    else if (action==='step'){data.phase='reveal';const maxSteps=Math.max(0,...['A','B'].map(t=>data.events.filter(e=>e.team===t).length));const delta=Math.max(-20,Math.min(20,Math.trunc(Number(body.delta)||0)));data.revealStep=Math.max(0,Math.min(maxSteps,data.revealStep+delta));}
     else if (action==='round')data.round=Math.max(1,Math.min(100,(data.round||1)+Math.sign(Number(body.delta)||0)));
     else return Response.json({error:'Invalid or disallowed action'},{status:400,headers});
     data.revision++;await this.storage.put('game',data);return Response.json(data,{headers});

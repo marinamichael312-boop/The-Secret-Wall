@@ -124,9 +124,12 @@ function wallCard(t,n,finished){
  // One shared timeline: both teams start together and finish together.
  const done=globalTotal?Math.min(amount,Math.floor((n/globalTotal)*amount+1e-9)):0;
  const remaining=amount-done;
- const lastType=amount?all[amount-1].type:null;
- const building=lastType==='+';
- const breaking=lastType==='-';
+ // Decide the entire wall direction from the balance of positive and negative points.
+ // Equal scores count as breaking, as requested. The countdown still uses ALL points.
+ const plus=all.filter(e=>e.type==='+').length;
+ const minus=amount-plus;
+ const building=amount>0 && plus>minus;
+ const breaking=amount>0 && plus<=minus;
  // Distribute the complete 48-stone facade over the team's FULL countdown.
  // No early clearing and no invisible extra countdown steps.
  const affected=amount?Math.floor(done*48/amount):0;

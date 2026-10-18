@@ -16,8 +16,4 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy
-          secrets: |
-            ADMIN_PIN
-        env:
-          ADMIN_PIN: ${{ secrets.ADMIN_PIN }}
+          command: deploy --keep-vars

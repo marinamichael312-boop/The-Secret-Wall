@@ -79,9 +79,9 @@ button.gold{background:linear-gradient(135deg,#f3c978,#b98535)}
 
 /* Reveal fixes: a real door behind disappearing stones, clean building animation. */
 .cinema-stage .facade{background:transparent!important}
-.cinema-stage .stone.removed{opacity:0!important;visibility:hidden;transform:translateY(135px) rotate(16deg) scale(.6)}
+.cinema-stage .stone.removed{opacity:0!important;transform:translateY(135px) rotate(16deg) scale(.6)}
 .cinema-stage .stone.build-base{background:linear-gradient(145deg,#272b2b,#1c2326 75%,#171c21);border-color:#1b2225;box-shadow:inset 1px 2px 2px #ffffff0b,inset -3px -4px 5px #0008}
-.cinema-stage .arch{z-index:3}
+.cinema-stage .arch{z-index:2}
 .cinema-stage .ambient{z-index:1}
 .cinema-stage .facade{z-index:5}
 .cinema-stage .masonry{z-index:7}
@@ -99,10 +99,15 @@ function score(t){let x=events().filter(e=>e.team===t);return {plus:x.filter(e=>
 function stageScore(t,n){return events().slice(0,n).filter(e=>e.team===t).reduce((v,e)=>Math.max(0,v+(e.type==='+'?1:-1)),0)}
 function url(r,t){let p=new URLSearchParams({role:r,room});if(t)p.set('team',t);return location.origin+location.pathname+'?'+p}
 function notify(s){let el=document.querySelector('#message');if(el)el.textContent=s;else alert(s)}
-async function sync(){try{let r=await fetch(endpoint(),{cache:'no-store'});if(!r.ok)throw Error('Server unavailable');let v=await r.json();if(v.revision!==state.revision){state=v;render()}}catch(e){let el=document.querySelector('#message');if(el)el.textContent='⚠️ الاتصال غير متاح: '+e.message}}
+async function sync(){try{let r=await fetch(endpoint(),{cache:'no-store'});if(!r.ok)throw Error('Server unavailable');let v=await r.json();if(v.revision!==state.revision){const amountField=document.querySelector('#pointAmount');const draftAmount=amountField?.value;state=v;render();if(draftAmount!==undefined&&document.querySelector('#pointAmount'))document.querySelector('#pointAmount').value=draftAmount}}catch(e){let el=document.querySelector('#message');if(el)el.textContent='⚠️ الاتصال غير متاح: '+e.message}}
 function adminPin(){let p=sessionStorage.getItem('sw-admin-pin');if(!p){p=prompt('أدخلي رمز الأدمن (ADMIN PIN)');if(p)sessionStorage.setItem('sw-admin-pin',p)}return p}
-async function action(body,admin=false){if(admin){let pin=adminPin();if(!pin)return;body.pin=pin}try{let r=await fetch(endpoint(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});let v=await r.json();if(!r.ok){if(r.status===403)sessionStorage.removeItem('sw-admin-pin');throw Error(v.error||'Request failed')}state=v;render()}catch(e){notify(e.message)}}
-async function addPoint(type){await action({action:'point',team,type})}
+async function action(body,admin=false){if(admin){let pin=adminPin();if(!pin)return;body.pin=pin}try{let r=await fetch(endpoint(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});let v=await r.json();if(!r.ok){if(r.status===403)sessionStorage.removeItem('sw-admin-pin');throw Error(v.error||'Request failed')}const draftAmount=document.querySelector('#pointAmount')?.value;state=v;render();if(draftAmount!==undefined&&document.querySelector('#pointAmount'))document.querySelector('#pointAmount').value=draftAmount}catch(e){notify(e.message)}}
+async function addPoint(type){
+ const field=document.querySelector('#pointAmount');
+ const amount=Number(field?.value);
+ if(!Number.isInteger(amount)||amount<1||amount>100){notify('اكتبي عدد صحيح من 1 إلى 100');return}
+ await action({action:'point',team,type,amount});
+}
 async function undo(){await action({action:'undo',team})}
 async function renameTeam(t,name){name=name.trim().slice(0,28);if(name)await action({action:'name',team:t,name})}
 function update(fn){let draft=JSON.parse(JSON.stringify(state));fn(draft);let body;if(draft.phase!==state.phase)body={action:'phase',value:draft.phase};else if(draft.revealStep!==state.revealStep)body={action:'step',delta:draft.revealStep-state.revealStep};else if(draft.round!==state.round)body={action:'round',delta:draft.round-state.round};else if(draft.events.length===0&&state.events.length>0)body={action:'reset'};else return Promise.resolve();return action(body,true)}
@@ -110,32 +115,33 @@ function save(){return Promise.resolve()}
 function init(){render();sync();setInterval(sync,500)}
 function shell(inner){root.innerHTML=`<div class="flex between"><h1>🧱 The Secret Wall</h1></div><div class="nav tiny"><a href="${url('home')}">الرئيسية</a><a href="${url('control','A')}">فريق A</a><a href="${url('control','B')}">فريق B</a><a href="${url('projector')}">العرض</a><a href="${url('admin')}">المدير</a></div><div id="message"></div>${inner}`}
 function home(){shell(`<div class="panel center"><h2>اختار دورك</h2><div class="grid"><button id="chooseA" class="big">🔵 Team A</button><button id="chooseB" class="big">🟠 Team B</button><button id="chooseAdmin" class="secondary">⚙️ Admin</button><button id="chooseProjector" class="secondary">🖥️ Projector</button></div></div>`);for(const t of ['A','B'])document.querySelector('#choose'+t).onclick=()=>location.href=url('control',t);document.querySelector('#chooseAdmin').onclick=()=>location.href=url('admin');document.querySelector('#chooseProjector').onclick=()=>location.href=url('projector')}
-function control(){let s=score(team);const current=(state.names||{})[team]||'';if(!current){shell(`<div class="panel center"><h2>اسم فريق ${team}</h2><p class="muted">اختاروا اسم الفريق للعبة دي</p><input id="teamname" maxlength="28" placeholder="اكتبوا اسم الفريق" autocomplete="off"><p><button id="setname" class="green big">ابدأ اللعب</button></p></div>`);document.querySelector('#setname').onclick=()=>renameTeam(team,document.querySelector('#teamname').value);return}shell(`<div class="panel center"><h2>📱 ${label(team)}</h2><p class="muted">سجّل النقط بدون كشف معنى النتيجة</p><div class="grid"><div class="team"><div class="score scoreplus">${s.plus} +</div><p>النقط الموجبة</p><button class="green big" id="plus" ${state.phase!=='play'?'disabled':''}>+ إضافة</button></div><div class="team"><div class="score scoreminus">${s.minus} −</div><p>النقط السالبة</p><button class="red big" id="minus" ${state.phase!=='play'?'disabled':''}>− إضافة</button></div></div><p><button class="secondary" id="undo" ${state.phase!=='play'?'disabled':''}>↶ تراجع عن آخر تسجيل</button></p><p class="muted">التحدي الحالي: ${state.round||1}</p></div>`);document.querySelector('#plus').onclick=()=>addPoint('+');document.querySelector('#minus').onclick=()=>addPoint('-');document.querySelector('#undo').onclick=undo}
+function control(){let s=score(team);const current=(state.names||{})[team]||'';if(!current){shell(`<div class="panel center"><h2>اسم فريق ${team}</h2><p class="muted">اختاروا اسم الفريق للعبة دي</p><input id="teamname" maxlength="28" placeholder="اكتبوا اسم الفريق" autocomplete="off"><p><button id="setname" class="green big">ابدأ اللعب</button></p></div>`);document.querySelector('#setname').onclick=()=>renameTeam(team,document.querySelector('#teamname').value);return}shell(`<div class="panel center"><h2>📱 ${label(team)}</h2><p class="muted">سجّل النقط بدون كشف معنى النتيجة</p><label for="pointAmount">عدد النقاط في التحدي</label><input id="pointAmount" type="number" min="1" max="100" step="1" value="1" inputmode="numeric" style="max-width:220px;text-align:center;font-size:26px;font-weight:800;margin:8px auto 18px"><div class="grid"><div class="team"><div class="score scoreplus">${s.plus} +</div><p>النقط الموجبة</p><button class="green big" id="plus" ${state.phase!=='play'?'disabled':''}>+ إضافة</button></div><div class="team"><div class="score scoreminus">${s.minus} −</div><p>النقط السالبة</p><button class="red big" id="minus" ${state.phase!=='play'?'disabled':''}>− إضافة</button></div></div><p><button class="secondary" id="undo" ${state.phase!=='play'?'disabled':''}>↶ تراجع عن آخر تسجيل</button></p><p class="muted">التحدي الحالي: ${state.round||1}</p></div>`);document.querySelector('#plus').onclick=()=>addPoint('+');document.querySelector('#minus').onclick=()=>addPoint('-');document.querySelector('#undo').onclick=undo}
 function scoreCard(t){const s=score(t),total=s.plus+s.minus;return `<div class="team"><h2>${label(t)}</h2><div class="score" style="color:#f3e6cb">${total}</div><p class="muted" style="margin:4px 0 0">النقاط المسجلة</p></div>`}
 function wallCard(t,n,finished){
  const all=events().filter(e=>e.team===t);
- const seen=events().slice(0,n).filter(e=>e.team===t);
- // Every recorded point counts; the last point decides build vs break.
  const amount=all.length;
- const lastType=all.length?all[all.length-1].type:null;
- const progress=amount?seen.length/amount:1;
- const applied=Math.min(48,seen.length);
- const remaining=amount-seen.length;
- const building=lastType==='+' ,breaking=lastType==='-';
- // The arch sits behind the stones. Opening the centre reveals it rather than a dark void.
+ const globalTotal=events().length;
+ // One shared timeline: both teams start together and finish together.
+ const done=globalTotal?Math.min(amount,Math.floor((n/globalTotal)*amount+1e-9)):0;
+ const remaining=amount-done;
+ const lastType=amount?all[amount-1].type:null;
+ const building=lastType==='+';
+ const breaking=lastType==='-';
+ // Distribute the complete 48-stone facade over the team's FULL countdown.
+ // No early clearing and no invisible extra countdown steps.
+ const affected=amount?Math.floor(done*48/amount):0;
  const order=[];
  for(let r=0;r<6;r++)for(let c=0;c<8;c++)order.push({i:r*8+c,d:Math.abs(c-3.5)*1.2+Math.abs(r-2.6)});
  order.sort((a,b)=>a.d-b.d);
- const exposed=new Set(breaking?order.slice(0,Math.min(48,applied*4)).map(x=>x.i):[]);
+ const exposed=new Set(breaking?order.slice(0,affected).map(x=>x.i):[]);
+ const built=new Set(building?order.slice(0,affected).map(x=>x.i):[]);
  let stones='',bricks='';
  for(let i=0;i<48;i++){
-   // During building, the underlying stones must not look like an extra grey wall.
-   stones+=`<div class="stone ${exposed.has(i)?'removed':''} ${building?'build-base':''}"></div>`;
-   if(building && i>=48-applied)
-     bricks+=`<div class="redbrick" style="grid-column:${i%8+1};grid-row:${Math.floor(i/8)+1}"></div>`;
+   stones+=`<div class="stone ${exposed.has(i)?'removed':''}"></div>`;
+   if(built.has(i))bricks+=`<div class="redbrick" style="grid-column:${i%8+1};grid-row:${Math.floor(i/8)+1}"></div>`;
  }
- const unlocked=finished&&breaking;
- return `<div class="reveal-team"><div class="reveal-team-header"><h2 class="reveal-name">${label(t)}</h2><span class="reveal-count" aria-label="العدد المتبقي">${remaining}</span></div><div class="cinema-stage ${building?'building-scene':''}"><div class="ambient"></div><div class="arch ${unlocked?'unlocked':''}"><div class="light"></div><div class="wood"></div></div><div class="facade">${stones}</div><div class="masonry">${bricks}</div><div class="floor"></div><div class="rubble"></div><div class="edge"></div></div></div>`
+ // Keep the wooden door CLOSED. It only becomes visible as stones disappear.
+ return `<div class="reveal-team"><div class="reveal-team-header"><h2 class="reveal-name">${label(t)}</h2><span class="reveal-count" aria-label="العدد المتبقي">${remaining}</span></div><div class="cinema-stage"><div class="ambient"></div><div class="arch"><div class="light"></div><div class="wood"></div></div><div class="facade">${stones}</div><div class="masonry">${bricks}</div><div class="floor"></div><div class="rubble"></div><div class="edge"></div></div></div>`;
 }
 function projector(){let phase=state.phase||'play',n=Math.min(state.revealStep||0,events().length),finished=phase==='reveal'&&n===events().length;root.className='projector';if(phase==='reveal'){shell(`<div class="center"><h2 class="reveal-heading">اكتشفوا تأثير اختياراتكم</h2></div><div class="reveal-grid">${wallCard('A',n,finished)}${wallCard('B',n,finished)}</div>`)}else{shell(`<div class="center"><h2>${phase==='results'?'استعدوا للمفاجأة':'لوحة الفرق'}</h2><p class="muted">${phase==='results'?'انتهت التحديات':'التحدي رقم '+(state.round||1)}</p></div><div class="grid">${scoreCard('A')}${scoreCard('B')}</div>`)}}
 function admin(){const phase=state.phase||'play';shell(`<div class="panel"><h2>⚙️ لوحة المدير</h2><p>التحكم في العرض على البروجيكتور</p><div class="flex"><button id="play">لوحة النتائج المباشرة</button><button class="secondary" id="results">تثبيت النتائج النهائية</button><button class="gold" id="reveal">🎬 بدء كشف الحيطة</button></div><p>المرحلة الحالية: ${phase} | حدث: ${state.revealStep||0} / ${events().length}</p><div class="flex"><button id="next" class="secondary">الحدث التالي</button><button id="back" class="secondary">الحدث السابق</button><button id="auto" class="green">▶ تشغيل الأنيميشن تلقائيًا</button><button id="stop" class="red">■ إيقاف</button></div><label>رقم التحدي</label><div class="flex"><button class="secondary" id="prevround">−</button><strong>${state.round||1}</strong><button class="secondary" id="nextround">+</button></div><hr style="border-color:#34465b;margin:24px 0"><button class="red" id="reset">🎮 لعبة جديدة (مسح الأسماء والنقط)</button></div><div class="panel"><h2>روابط الأجهزة</h2><label>موبايل فريق A</label><input readonly value="${url('control','A')}"><label>موبايل فريق B</label><input readonly value="${url('control','B')}"><label>اللابتوب</label><input readonly value="${url('projector')}"></div>`);

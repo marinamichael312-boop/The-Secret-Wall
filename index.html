@@ -115,14 +115,13 @@ function scoreCard(t){const s=score(t),total=s.plus+s.minus;return `<div class="
 function wallCard(t,n,finished){
  const all=events().filter(e=>e.team===t);
  const seen=events().slice(0,n).filter(e=>e.team===t);
- const totals=score(t),net=totals.plus-totals.minus;
- // Animate the final NET result, not a misleading mixture of both types.
- // Each team's own events advance its progress independently.
- const amount=Math.min(48,Math.abs(net));
- const progress=all.length?Math.min(1,seen.length/all.length):1;
- const applied=Math.min(amount,Math.floor(amount*progress+0.000001));
- const remaining=Math.max(0,Math.abs(net)-Math.floor(Math.abs(net)*progress+0.000001));
- const building=net>0,breaking=net<0;
+ // Every recorded point counts; the last point decides build vs break.
+ const amount=all.length;
+ const lastType=all.length?all[all.length-1].type:null;
+ const progress=amount?seen.length/amount:1;
+ const applied=Math.min(48,seen.length);
+ const remaining=amount-seen.length;
+ const building=lastType==='+' ,breaking=lastType==='-';
  // The arch sits behind the stones. Opening the centre reveals it rather than a dark void.
  const order=[];
  for(let r=0;r<6;r++)for(let c=0;c<8;c++)order.push({i:r*8+c,d:Math.abs(c-3.5)*1.2+Math.abs(r-2.6)});
